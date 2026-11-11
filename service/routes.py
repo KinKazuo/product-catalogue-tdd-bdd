@@ -18,9 +18,8 @@
 """
 Product Store Service with UI
 """
-from flask import jsonify, request, abort
-from flask import url_for  # noqa: F401 pylint: disable=unused-import
-from service.models import Product
+from flask import jsonify, request, abort, url_for
+from service.models import Category, Product
 from service.common import status  # HTTP Status Codes
 from . import app
 
@@ -55,7 +54,7 @@ def check_content_type(content_type):
             f"Content-Type must be {content_type}",
         )
 
-    if request.headers["Content-Type"] == content_type:
+    if request.mimetype == content_type:
         return
 
     app.logger.error("Invalid Content-Type: %s", request.headers["Content-Type"])
@@ -86,11 +85,7 @@ def create_products():
 
     message = product.serialize()
 
-    #
-    # Uncomment this line of code once you implement READ A PRODUCT
-    #
-    # location_url = url_for("get_products", product_id=product.id, _external=True)
-    location_url = "/"  # delete once READ is implemented
+    location_url = url_for("get_products", product_id=product.id, _external=True)
     return jsonify(message), status.HTTP_201_CREATED, {"Location": location_url}
 
 
@@ -98,31 +93,68 @@ def create_products():
 # L I S T   A L L   P R O D U C T S
 ######################################################################
 
-#
-# PLACE YOUR CODE TO LIST ALL PRODUCTS HERE
-#
+@app.route("/products", methods=["GET"])
+def list_products():
+    """List products, optionally filtering by name, category, and availability."""
+    name = request.args.get("name")
+    category = request.args.get("category")
+    available = request.args.get("available")
+    query = Product.query
+
+    if name is not None:
+        query = query.filter_by(name=name)
+    if category is not None:
+        try:
+            category_value = Category[category.upper()]
+        except KeyError:
+            abort(status.HTTP_400_BAD_REQUEST, f"Invalid category: {category}")
+        query = query.filter_by(category=category_value)
+    if available is not None:
+        value = available.lower()
+        if value not in ("true", "false"):
+            abort(status.HTTP_400_BAD_REQUEST, "Available must be true or false")
+        query = query.filter_by(available=value == "true")
+
+    products = query.order_by(Product.id).all()
+    return jsonify([product.serialize() for product in products]), status.HTTP_200_OK
 
 ######################################################################
 # R E A D   A   P R O D U C T
 ######################################################################
 
-#
-# PLACE YOUR CODE HERE TO READ A PRODUCT
-#
+@app.route("/products/<int:product_id>", methods=["GET"])
+def get_products(product_id):
+    """Return one product by ID."""
+    product = Product.find(product_id)
+    if product is None:
+        abort(status.HTTP_404_NOT_FOUND, f"Product with id {product_id} was not found")
+    return jsonify(product.serialize()), status.HTTP_200_OK
 
 ######################################################################
 # U P D A T E   A   P R O D U C T
 ######################################################################
 
-#
-# PLACE YOUR CODE TO UPDATE A PRODUCT HERE
-#
+@app.route("/products/<int:product_id>", methods=["PUT"])
+def update_products(product_id):
+    """Update a product and return its new representation."""
+    check_content_type("application/json")
+    product = Product.find(product_id)
+    if product is None:
+        abort(status.HTTP_404_NOT_FOUND, f"Product with id {product_id} was not found")
+
+    product.deserialize(request.get_json())
+    product.update()
+    return jsonify(product.serialize()), status.HTTP_200_OK
 
 ######################################################################
 # D E L E T E   A   P R O D U C T
 ######################################################################
 
 
-#
-# PLACE YOUR CODE TO DELETE A PRODUCT HERE
-#
+@app.route("/products/<int:product_id>", methods=["DELETE"])
+def delete_products(product_id):
+    """Delete the product if it exists."""
+    product = Product.find(product_id)
+    if product is not None:
+        product.delete()
+    return "", status.HTTP_204_NO_CONTENT

@@ -101,6 +101,106 @@ class TestProductModel(unittest.TestCase):
         self.assertEqual(new_product.available, product.available)
         self.assertEqual(new_product.category, product.category)
 
-    #
-    # ADD YOUR TEST CASES HERE
-    #
+    def test_read_a_product(self):
+        """It should Read a product by its ID."""
+        product = ProductFactory()
+        product.create()
+        product_id = product.id
+        expected = product.serialize()
+        db.session.remove()
+
+        retrieved = Product.find(product_id)
+        self.assertIsNotNone(retrieved)
+        self.assertEqual(retrieved.id, product_id)
+        self.assertEqual(retrieved.name, expected["name"])
+        self.assertEqual(retrieved.description, expected["description"])
+        self.assertEqual(retrieved.price, Decimal(expected["price"]))
+        self.assertEqual(retrieved.available, expected["available"])
+        self.assertEqual(retrieved.category.name, expected["category"])
+        self.assertIsNone(Product.find(product_id + 1))
+
+    def test_update_a_product(self):
+        """It should persist changes to an existing product."""
+        product = ProductFactory(name="Desk", description="Fixed height desk", available=False)
+        product.create()
+        product_id = product.id
+        product.name = "Standing Desk"
+        product.description = "Height-adjustable desk"
+        product.available = True
+        product.update()
+        db.session.remove()
+
+        updated = Product.find(product_id)
+        self.assertEqual(updated.id, product_id)
+        self.assertEqual(updated.name, "Standing Desk")
+        self.assertEqual(updated.description, "Height-adjustable desk")
+        self.assertTrue(updated.available)
+        self.assertEqual(len(Product.all()), 1)
+
+    def test_delete_a_product(self):
+        """It should Delete a product from the database."""
+        product = ProductFactory()
+        product.create()
+        product_id = product.id
+        self.assertEqual(len(Product.all()), 1)
+        product.delete()
+        db.session.remove()
+
+        self.assertIsNone(Product.find(product_id))
+        self.assertEqual(len(Product.all()), 0)
+        self.assertEqual(Product.all(), [])
+
+    def test_list_all_products(self):
+        """It should return all saved products."""
+        self.assertEqual(Product.all(), [])
+        products = ProductFactory.create_batch(3)
+        for product in products:
+            product.create()
+
+        saved_products = Product.all()
+        self.assertEqual(len(saved_products), 3)
+        self.assertCountEqual([p.id for p in saved_products], [p.id for p in products])
+
+    def test_find_by_name(self):
+        """It should return only products whose name matches."""
+        products = [ProductFactory(name=name) for name in ("Hat", "Shoes", "Hat")]
+        for product in products:
+            product.create()
+
+        name = "Hat"
+        expected = [product for product in products if product.name == name]
+        matches = Product.find_by_name(name).all()
+        self.assertEqual(len(matches), len(expected))
+        self.assertCountEqual([p.id for p in matches], [p.id for p in expected])
+        for product in matches:
+            self.assertEqual(product.name, name)
+
+    def test_find_by_category(self):
+        """It should return only products in the requested category."""
+        categories = (Category.TOOLS, Category.FOOD, Category.TOOLS)
+        products = [ProductFactory(category=category) for category in categories]
+        for product in products:
+            product.create()
+
+        category = Category.TOOLS
+        expected = [product for product in products if product.category == category]
+        matches = Product.find_by_category(category).all()
+        self.assertEqual(len(matches), len(expected))
+        self.assertCountEqual([p.id for p in matches], [p.id for p in expected])
+        for product in matches:
+            self.assertEqual(product.category, category)
+
+    def test_find_by_availability(self):
+        """It should return products for both availability values."""
+        in_stock = ProductFactory(available=True)
+        out_of_stock = ProductFactory(available=False)
+        in_stock.create()
+        out_of_stock.create()
+
+        for available, expected in [(True, in_stock), (False, out_of_stock)]:
+            with self.subTest(available=available):
+                matches = Product.find_by_availability(available).all()
+                self.assertEqual(len(matches), 1)
+                self.assertEqual(matches[0].id, expected.id)
+                for product in matches:
+                    self.assertEqual(product.available, available)

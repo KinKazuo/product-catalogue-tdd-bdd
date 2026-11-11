@@ -188,39 +188,18 @@ $(function () {
     $("#search-btn").click(function () {
 
         let name = $("#product_name").val();
-        let description = $("#product_description").val();
-        let available = $("#product_available").val() == "true";
+        let available = $("#product_available").val();
         let category = $("#product_category").val();
-
-        let queryString = ""
-
-        if (name) {
-            queryString += 'name=' + name
-        }
-        if (description) {
-            if (queryString.length > 0) {
-                queryString += '&'  // add separator
-            }
-            queryString += 'description=' + description
-        }
-        if (available) {
-            if (queryString.length > 0) {
-                queryString += '&'  // add separator
-            }
-            queryString += 'available=' + available
-        }
-        if (category) {
-            if (queryString.length > 0) {
-                queryString += '&'  // add separator
-            }
-            queryString += 'category=' + category
-        }
+        const filters = new URLSearchParams();
+        if (name) filters.set("name", name);
+        if (available) filters.set("available", available);
+        if (category) filters.set("category", category);
 
         $("#flash_message").empty();
 
         let ajax = $.ajax({
             type: "GET",
-            url: `/products?${queryString}`,
+            url: `/products?${filters}`,
             contentType: "application/json",
             data: ''
         })

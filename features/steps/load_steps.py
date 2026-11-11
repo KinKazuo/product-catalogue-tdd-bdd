@@ -31,22 +31,22 @@ HTTP_201_CREATED = 201
 HTTP_204_NO_CONTENT = 204
 
 @given('the following products')
-def step_impl(context):
-    """ Delete all Products and load new ones """
-    #
-    # List all of the products and delete them one by one
-    #
+def load_products(context):
+    """Reset the test catalogue and load the products from the background table."""
     rest_endpoint = f"{context.base_url}/products"
-    context.resp = requests.get(rest_endpoint)
-    assert(context.resp.status_code == HTTP_200_OK)
-    for product in context.resp.json():
-        context.resp = requests.delete(f"{rest_endpoint}/{product['id']}")
-        assert(context.resp.status_code == HTTP_204_NO_CONTENT)
+    response = requests.get(rest_endpoint, timeout=10)
+    assert response.status_code == HTTP_200_OK, response.text
+    for product in response.json():
+        response = requests.delete(f"{rest_endpoint}/{product['id']}", timeout=10)
+        assert response.status_code == HTTP_204_NO_CONTENT, response.text
 
-    #
-    # load the database with new products
-    #
     for row in context.table:
-        #
-        # ADD YOUR CODE HERE TO CREATE PRODUCTS VIA THE REST API
-        #
+        product = {
+            "name": row["name"],
+            "description": row["description"],
+            "price": row["price"],
+            "available": row["available"].lower() == "true",
+            "category": row["category"],
+        }
+        response = requests.post(rest_endpoint, json=product, timeout=10)
+        assert response.status_code == HTTP_201_CREATED, response.text

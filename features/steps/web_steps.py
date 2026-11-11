@@ -104,7 +104,36 @@ def step_impl(context, element_name):
 # to get the element id of any button
 ##################################################################
 
-## UPDATE CODE HERE ##
+@when('I press the "{button}" button')
+def click_button(context, button):
+    button_id = f"{button.lower()}-btn"
+    WebDriverWait(context.driver, context.wait_seconds).until(
+        expected_conditions.element_to_be_clickable((By.ID, button_id))
+    ).click()
+
+
+@then('I should see "{text}" in the results')
+def see_result(context, text):
+    found = WebDriverWait(context.driver, context.wait_seconds).until(
+        expected_conditions.text_to_be_present_in_element((By.ID, "search_results"), text)
+    )
+    assert found, f"Expected to see {text!r} in the search results"
+
+
+@then('I should not see "{text}" in the results')
+def do_not_see_result(context, text):
+    results = WebDriverWait(context.driver, context.wait_seconds).until(
+        expected_conditions.visibility_of_element_located((By.ID, "search_results"))
+    )
+    assert text not in results.text, f"Unexpected result: {text}"
+
+
+@then('I should see the message "{message}"')
+def see_message(context, message):
+    found = WebDriverWait(context.driver, context.wait_seconds).until(
+        expected_conditions.text_to_be_present_in_element((By.ID, "flash_message"), message)
+    )
+    assert found, f"Expected to see the message {message!r}"
 
 ##################################################################
 # This code works because of the following naming convention:

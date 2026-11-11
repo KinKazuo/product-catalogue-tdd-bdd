@@ -30,7 +30,7 @@ available (boolean) - True for products that are available for adoption
 """
 import logging
 from enum import Enum
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 
@@ -145,7 +145,7 @@ class Product(db.Model):
             raise DataValidationError("Invalid attribute: " + error.args[0]) from error
         except KeyError as error:
             raise DataValidationError("Invalid product: missing " + error.args[0]) from error
-        except TypeError as error:
+        except (TypeError, InvalidOperation) as error:
             raise DataValidationError(
                 "Invalid product: body of request contained bad or no data " + str(error)
             ) from error
@@ -165,8 +165,9 @@ class Product(db.Model):
         """
         logger.info("Initializing database")
         # This is where we initialize SQLAlchemy from the Flask app
-        db.init_app(app)
-        app.app_context().push()
+        if "sqlalchemy" not in app.extensions:
+            db.init_app(app)
+            app.app_context().push()
         db.create_all()  # make our sqlalchemy tables
 
     @classmethod
@@ -187,7 +188,7 @@ class Product(db.Model):
 
         """
         logger.info("Processing lookup for id %s ...", product_id)
-        return cls.query.get(product_id)
+        return db.session.get(cls, product_id)
 
     @classmethod
     def find_by_name(cls, name: str) -> list:
